@@ -62,7 +62,7 @@ import net.md_5.bungee.tab.TabList;
 import net.md_5.bungee.util.CaseInsensitiveSet;
 
 @RequiredArgsConstructor
-public final class UserConnection implements ProxiedPlayer
+public class UserConnection implements ProxiedPlayer
 {
 
     /*========================================================================*/
