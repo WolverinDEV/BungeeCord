@@ -278,6 +278,12 @@ public enum Protocol
             return protocol;
         }
 
+	//From Waterfall patch for BungeeUtil.
+	//https://github.com/WaterfallMC/Waterfall/blob/master/BungeeCord-Patches/0018-Allow-invalid-packet-ids-for-forge-servers.patch#L47-L63
+	public final DefinedPacket createPacket(int id, int version, boolean forge){
+		return createPacket(id, version);
+	}
+
         public final DefinedPacket createPacket(int id, int version)
         {
             ProtocolData protocolData = getProtocolData( version );
