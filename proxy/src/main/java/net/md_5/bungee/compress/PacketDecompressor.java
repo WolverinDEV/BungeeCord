@@ -13,6 +13,14 @@ public class PacketDecompressor extends MessageToMessageDecoder<ByteBuf>
 
     private final BungeeZlib zlib = CompressFactory.zlib.newInstance();
 
+    //Constructor for BungeeCord
+    public PacketDecompressor(){ 
+    }
+
+    //Constructor for Waterfall
+    public PacketDecompressor(int compressionThreshold){
+    }
+
     @Override
     public void handlerAdded(ChannelHandlerContext ctx) throws Exception
     {
