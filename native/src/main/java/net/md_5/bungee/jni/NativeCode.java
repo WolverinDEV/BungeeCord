@@ -37,10 +37,10 @@ public final class NativeCode<T>
 
     public boolean load()
     {
-        if ( !loaded && isSupported() )
+        if ( !loaded && isSupported())
         {
-            String fullName = "bungeecord-" + name;
-
+            String fullName = getLibaryName(name);
+            System.out.println("Using so file "+fullName);
             try
             {
                 System.loadLibrary( fullName );
@@ -78,8 +78,47 @@ public final class NativeCode<T>
         return loaded;
     }
 
+
+    private static int checkState = -1;
     public static boolean isSupported()
     {
-        return "Linux".equals( System.getProperty( "os.name" ) ) && "amd64".equals( System.getProperty( "os.arch" ) );
+        if(checkState == -1){
+            String tmp = getSystemName();
+            if(tmp.equalsIgnoreCase("unknown")){
+                checkState = 0;
+                return false;
+            }
+
+            if(BungeeCipher.class.getClassLoader().getResource(getLibaryName("cipher")) != null){
+                checkState = 1;
+                return true;
+            }
+        }
+        return checkState == 0;
+    }
+
+    private static String getArch(){
+        switch (System.getProperty( "os.arch" ).toLowerCase()){
+            case "amd64":
+                return "64";
+            default:
+                return "32";
+        }
+    }
+
+    private static String getSystemName(){
+        String name = System.getProperty( "os.name" ).toLowerCase();
+        if(name.contains("windows"))
+            return "windows";
+        else if(name.contains("linux"))
+            return "linux";
+        //TODO implement mac os
+        //else if(name.contains("mac"))
+        //    return "mac";
+        return "unknown";
+    }
+
+    public static String getLibaryName(String name){
+        return "NativeCode_"+name+"_"+getSystemName().toLowerCase()+"_x"+getArch();
     }
 }
