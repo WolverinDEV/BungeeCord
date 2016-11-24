@@ -1,5 +1,6 @@
 #include <stdlib.h>
-#include <zlib.h>
+#include "zlib.h"
+#include "ExceptionHandler.h"
 #include "net_md_5_bungee_jni_zlib_NativeCompressImpl.h"
 
 typedef unsigned char byte;
@@ -11,17 +12,6 @@ void JNICALL Java_net_md_15_bungee_jni_zlib_NativeCompressImpl_initFields(JNIEnv
     // We trust that these fields will be there
     consumedID = env->GetFieldID(clazz, "consumed", "I");
     finishedID = env->GetFieldID(clazz, "finished", "Z");
-}
-
-jint throwException(JNIEnv *env, const char* message, int err) {
-    // These can't be static for some unknown reason
-    jclass exceptionClass = env->FindClass("net/md_5/bungee/jni/NativeCodeException");
-    jmethodID exceptionInitID = env->GetMethodID(exceptionClass, "<init>", "(Ljava/lang/String;I)V");
-
-    jstring jMessage = env->NewStringUTF(message);
-
-    jthrowable throwable = (jthrowable) env->NewObject(exceptionClass, exceptionInitID, jMessage, err);
-    return env->Throw(throwable);
 }
 
 void JNICALL Java_net_md_15_bungee_jni_zlib_NativeCompressImpl_reset(JNIEnv* env, jobject obj, jlong ctx, jboolean compress) {
