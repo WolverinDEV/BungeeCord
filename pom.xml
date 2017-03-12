@@ -9,7 +9,7 @@
         <version>9</version>
     </parent>
 
-    <groupId>net.md-5</groupId>
+    <groupId>dev.wolveringer.bungee</groupId>
     <artifactId>bungeecord-parent</artifactId>
     <version>1.11-SNAPSHOT</version>
     <packaging>pom</packaging>
