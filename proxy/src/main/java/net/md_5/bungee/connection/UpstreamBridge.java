@@ -1,6 +1,7 @@
 package net.md_5.bungee.connection;
 
 import com.google.common.base.Preconditions;
+import io.netty.channel.Channel;
 import java.util.ArrayList;
 import java.util.List;
 import net.md_5.bungee.BungeeCord;
@@ -11,6 +12,7 @@ import net.md_5.bungee.api.connection.ProxiedPlayer;
 import net.md_5.bungee.api.event.ChatEvent;
 import net.md_5.bungee.api.event.PlayerDisconnectEvent;
 import net.md_5.bungee.api.event.PluginMessageEvent;
+import net.md_5.bungee.api.event.SettingsChangedEvent;
 import net.md_5.bungee.api.event.TabCompleteEvent;
 import net.md_5.bungee.forge.ForgeConstants;
 import net.md_5.bungee.netty.ChannelWrapper;
@@ -81,6 +83,22 @@ public class UpstreamBridge extends PacketHandler
     }
 
     @Override
+    public void writabilityChanged(ChannelWrapper channel) throws Exception
+    {
+        if ( con.getServer() != null )
+        {
+            Channel server = con.getServer().getCh().getHandle();
+            if ( channel.getHandle().isWritable() )
+            {
+                server.config().setAutoRead( true );
+            } else
+            {
+                server.config().setAutoRead( false );
+            }
+        }
+    }
+
+    @Override
     public boolean shouldHandle(PacketWrapper packet) throws Exception
     {
         return con.getServer() != null || packet.packet instanceof PluginMessage;
@@ -99,11 +117,14 @@ public class UpstreamBridge extends PacketHandler
     @Override
     public void handle(KeepAlive alive) throws Exception
     {
-        if ( alive.getRandomId() == con.getSentPingId() )
+        if ( alive.getRandomId() == con.getServer().getSentPingId() )
         {
             int newPing = (int) ( System.currentTimeMillis() - con.getSentPingTime() );
             con.getTabListHandler().onPingChange( newPing );
             con.setPing( newPing );
+        } else
+        {
+            throw CancelSendSignal.INSTANCE;
         }
     }
 
@@ -155,6 +176,9 @@ public class UpstreamBridge extends PacketHandler
     public void handle(ClientSettings settings) throws Exception
     {
         con.setSettings( settings );
+
+        SettingsChangedEvent settingsEvent = new SettingsChangedEvent( con );
+        bungee.getPluginManager().callEvent( settingsEvent );
     }
 
     @Override
@@ -164,25 +188,29 @@ public class UpstreamBridge extends PacketHandler
         {
             throw CancelSendSignal.INSTANCE;
         }
-        // Hack around Forge race conditions
-        if ( pluginMessage.getTag().equals( "FML" ) && pluginMessage.getStream().readUnsignedByte() == 1 )
-        {
-            throw CancelSendSignal.INSTANCE;
-        }
 
-        // We handle forge handshake messages if forge support is enabled.
-        if ( pluginMessage.getTag().equals( ForgeConstants.FML_HANDSHAKE_TAG ) )
+        if ( BungeeCord.getInstance().config.isForgeSupport() )
         {
-            // Let our forge client handler deal with this packet.
-            con.getForgeClientHandler().handle( pluginMessage );
-            throw CancelSendSignal.INSTANCE;
-        }
+            // Hack around Forge race conditions
+            if ( pluginMessage.getTag().equals( "FML" ) && pluginMessage.getStream().readUnsignedByte() == 1 )
+            {
+                throw CancelSendSignal.INSTANCE;
+            }
 
-        if ( con.getServer() != null && !con.getServer().isForgeServer() && pluginMessage.getData().length > Short.MAX_VALUE )
-        {
-            // Drop the packet if the server is not a Forge server and the message was > 32kiB (as suggested by @jk-5)
-            // Do this AFTER the mod list, so we get that even if the intial server isn't modded.
-            throw CancelSendSignal.INSTANCE;
+            // We handle forge handshake messages if forge support is enabled.
+            if ( pluginMessage.getTag().equals( ForgeConstants.FML_HANDSHAKE_TAG ) )
+            {
+                // Let our forge client handler deal with this packet.
+                con.getForgeClientHandler().handle( pluginMessage );
+                throw CancelSendSignal.INSTANCE;
+            }
+
+            if ( con.getServer() != null && !con.getServer().isForgeServer() && pluginMessage.getData().length > Short.MAX_VALUE )
+            {
+                // Drop the packet if the server is not a Forge server and the message was > 32kiB (as suggested by @jk-5)
+                // Do this AFTER the mod list, so we get that even if the intial server isn't modded.
+                throw CancelSendSignal.INSTANCE;
+            }
         }
 
         PluginMessageEvent event = new PluginMessageEvent( con, con.getServer(), pluginMessage.getTag(), pluginMessage.getData().clone() );

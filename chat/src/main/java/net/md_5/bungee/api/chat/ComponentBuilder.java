@@ -1,5 +1,6 @@
 package net.md_5.bungee.api.chat;
 
+import com.google.common.base.Preconditions;
 import net.md_5.bungee.api.ChatColor;
 import java.util.ArrayList;
 import java.util.List;
@@ -22,10 +23,10 @@ import java.util.List;
  * part's formatting
  * </p>
  */
-public class ComponentBuilder
+public final class ComponentBuilder
 {
 
-    private TextComponent current;
+    private BaseComponent current;
     private final List<BaseComponent> parts = new ArrayList<BaseComponent>();
 
     /**
@@ -36,7 +37,7 @@ public class ComponentBuilder
      */
     public ComponentBuilder(ComponentBuilder original)
     {
-        current = new TextComponent( original.current );
+        current = original.current.duplicate();
         for ( BaseComponent baseComponent : original.parts )
         {
             parts.add( baseComponent.duplicate() );
@@ -54,8 +55,88 @@ public class ComponentBuilder
     }
 
     /**
+     * Creates a ComponentBuilder with the given component as the first part.
+     *
+     * @param component the first component element
+     */
+    public ComponentBuilder(BaseComponent component)
+    {
+        current = component.duplicate();
+    }
+
+    /**
+     * Appends a component to the builder and makes it the current target for
+     * formatting. The component will have all the formatting from previous
+     * part.
+     *
+     * @param component the component to append
+     * @return this ComponentBuilder for chaining
+     */
+    public ComponentBuilder append(BaseComponent component)
+    {
+        return append( component, FormatRetention.ALL );
+    }
+
+    /**
+     * Appends a component to the builder and makes it the current target for
+     * formatting. You can specify the amount of formatting retained from
+     * previous part.
+     *
+     * @param component the component to append
+     * @param retention the formatting to retain
+     * @return this ComponentBuilder for chaining
+     */
+    public ComponentBuilder append(BaseComponent component, FormatRetention retention)
+    {
+        parts.add( current );
+
+        BaseComponent previous = current;
+        current = component.duplicate();
+        current.copyFormatting( previous, retention, false );
+        return this;
+    }
+
+    /**
+     * Appends the components to the builder and makes the last element the
+     * current target for formatting. The components will have all the
+     * formatting from previous part.
+     *
+     * @param components the components to append
+     * @return this ComponentBuilder for chaining
+     */
+    public ComponentBuilder append(BaseComponent[] components)
+    {
+        return append( components, FormatRetention.ALL );
+    }
+
+    /**
+     * Appends the components to the builder and makes the last element the
+     * current target for formatting. You can specify the amount of formatting
+     * retained from previous part.
+     *
+     * @param components the components to append
+     * @param retention the formatting to retain
+     * @return this ComponentBuilder for chaining
+     */
+    public ComponentBuilder append(BaseComponent[] components, FormatRetention retention)
+    {
+        Preconditions.checkArgument( components.length != 0, "No components to append" );
+
+        BaseComponent previous = current;
+        for ( BaseComponent component : components )
+        {
+            parts.add( current );
+
+            current = component.duplicate();
+            current.copyFormatting( previous, retention, false );
+        }
+
+        return this;
+    }
+
+    /**
      * Appends the text to the builder and makes it the current target for
-     * formatting. The text will have all the formatting from the previous part.
+     * formatting. The text will have all the formatting from previous part.
      *
      * @param text the text to append
      * @return this ComponentBuilder for chaining
@@ -67,7 +148,8 @@ public class ComponentBuilder
 
     /**
      * Appends the text to the builder and makes it the current target for
-     * formatting. You can specify the amount of formatting retained.
+     * formatting. You can specify the amount of formatting retained from
+     * previous part.
      *
      * @param text the text to append
      * @param retention the formatting to retain
@@ -77,9 +159,9 @@ public class ComponentBuilder
     {
         parts.add( current );
 
-        current = new TextComponent( current );
-        current.setText( text );
-        retain( retention );
+        BaseComponent old = current;
+        current = new TextComponent( text );
+        current.copyFormatting( old, retention, false );
 
         return this;
     }
@@ -210,27 +292,7 @@ public class ComponentBuilder
      */
     public ComponentBuilder retain(FormatRetention retention)
     {
-        BaseComponent previous = current;
-
-        switch ( retention )
-        {
-            case NONE:
-                current = new TextComponent( current.getText() );
-                break;
-            case ALL:
-                // No changes are required
-                break;
-            case EVENTS:
-                current = new TextComponent( current.getText() );
-                current.setInsertion( previous.getInsertion() );
-                current.setClickEvent( previous.getClickEvent() );
-                current.setHoverEvent( previous.getHoverEvent() );
-                break;
-            case FORMATTING:
-                current.setClickEvent( null );
-                current.setHoverEvent( null );
-                break;
-        }
+        current.retain( retention );
         return this;
     }
 

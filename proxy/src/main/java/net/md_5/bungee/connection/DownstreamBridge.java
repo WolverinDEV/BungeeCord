@@ -1,6 +1,5 @@
 package net.md_5.bungee.connection;
 
-import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.io.ByteArrayDataOutput;
 import com.google.common.io.ByteStreams;
@@ -19,6 +18,7 @@ import net.md_5.bungee.api.ProxyServer;
 import net.md_5.bungee.api.config.ServerInfo;
 import net.md_5.bungee.api.connection.ProxiedPlayer;
 import net.md_5.bungee.api.event.PluginMessageEvent;
+import net.md_5.bungee.api.event.ServerConnectEvent;
 import net.md_5.bungee.api.event.ServerKickEvent;
 import net.md_5.bungee.api.score.Objective;
 import net.md_5.bungee.api.score.Position;
@@ -64,7 +64,7 @@ public class DownstreamBridge extends PacketHandler
         if ( def != null )
         {
             server.setObsolete( true );
-            con.connectNow( def );
+            con.connectNow( def, ServerConnectEvent.Reason.SERVER_DOWN_REDIRECT );
             con.sendMessage( bungee.getTranslation( "server_went_down" ) );
         } else
         {
@@ -107,7 +107,7 @@ public class DownstreamBridge extends PacketHandler
     @Override
     public void handle(KeepAlive alive) throws Exception
     {
-        con.setSentPingId( alive.getRandomId() );
+        server.setSentPingId( alive.getRandomId() );
         con.setSentPingTime( System.currentTimeMillis() );
     }
 
@@ -135,6 +135,7 @@ public class DownstreamBridge extends PacketHandler
                 if ( oldObjective != null )
                 {
                     oldObjective.setValue( objective.getValue() );
+                    oldObjective.setType( objective.getType() );
                 }
                 break;
             default:
@@ -210,7 +211,7 @@ public class DownstreamBridge extends PacketHandler
                     if ( team.getMode() == 0 || team.getMode() == 3 )
                     {
                         t.addPlayer( s );
-                    } else
+                    } else if ( team.getMode() == 4 )
                     {
                         t.removePlayer( s );
                     }
@@ -223,7 +224,7 @@ public class DownstreamBridge extends PacketHandler
     public void handle(PluginMessage pluginMessage) throws Exception
     {
         DataInput in = pluginMessage.getStream();
-        PluginMessageEvent event = new PluginMessageEvent( con.getServer(), con, pluginMessage.getTag(), pluginMessage.getData().clone() );
+        PluginMessageEvent event = new PluginMessageEvent( server, con, pluginMessage.getTag(), pluginMessage.getData().clone() );
 
         if ( bungee.getPluginManager().callEvent( event ).isCancelled() )
         {
@@ -297,7 +298,7 @@ public class DownstreamBridge extends PacketHandler
                 {
                     for ( ServerInfo server : bungee.getServers().values() )
                     {
-                        if ( server != con.getServer().getInfo() )
+                        if ( server != this.server.getInfo() )
                         {
                             server.sendData( "BungeeCord", payload );
                         }
@@ -306,7 +307,7 @@ public class DownstreamBridge extends PacketHandler
                 {
                     for ( ServerInfo server : bungee.getServers().values() )
                     {
-                        if ( server != con.getServer().getInfo() )
+                        if ( server != this.server.getInfo() )
                         {
                             server.sendData( "BungeeCord", payload, false );
                         }
@@ -325,7 +326,7 @@ public class DownstreamBridge extends PacketHandler
                 ServerInfo server = bungee.getServerInfo( in.readUTF() );
                 if ( server != null )
                 {
-                    con.connect( server );
+                    con.connect( server, ServerConnectEvent.Reason.PLUGIN_MESSAGE );
                 }
             }
             if ( subChannel.equals( "ConnectOther" ) )
@@ -442,7 +443,7 @@ public class DownstreamBridge extends PacketHandler
                 byte[] b = out.toByteArray();
                 if ( b.length != 0 )
                 {
-                    con.getServer().sendData( "BungeeCord", b );
+                    server.sendData( "BungeeCord", b );
                 }
             }
 
@@ -457,7 +458,7 @@ public class DownstreamBridge extends PacketHandler
         ServerKickEvent event = bungee.getPluginManager().callEvent( new ServerKickEvent( con, server.getInfo(), ComponentSerializer.parse( kick.getMessage() ), def, ServerKickEvent.State.CONNECTED ) );
         if ( event.isCancelled() && event.getCancelServer() != null )
         {
-            con.connectNow( event.getCancelServer() );
+            con.connectNow( event.getCancelServer(), ServerConnectEvent.Reason.KICK_REDIRECT );
         } else
         {
             con.disconnect0( event.getKickReasonComponent() ); // TODO: Prefix our own stuff.
@@ -475,7 +476,7 @@ public class DownstreamBridge extends PacketHandler
     @Override
     public void handle(TabCompleteResponse tabCompleteResponse) throws Exception
     {
-        TabCompleteResponseEvent tabCompleteResponseEvent = new TabCompleteResponseEvent( con.getServer(), con, tabCompleteResponse.getCommands() );
+        TabCompleteResponseEvent tabCompleteResponseEvent = new TabCompleteResponseEvent( server, con, tabCompleteResponse.getCommands() );
 
         if ( !bungee.getPluginManager().callEvent( tabCompleteResponseEvent ).isCancelled() )
         {

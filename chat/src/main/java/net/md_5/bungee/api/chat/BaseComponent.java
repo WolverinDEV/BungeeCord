@@ -9,6 +9,7 @@ import net.md_5.bungee.api.ChatColor;
 import java.util.ArrayList;
 import java.util.List;
 import lombok.ToString;
+import net.md_5.bungee.api.chat.ComponentBuilder.FormatRetention;
 
 @Setter
 @ToString(exclude = "parent")
@@ -62,13 +63,13 @@ public abstract class BaseComponent
     private List<BaseComponent> extra;
 
     /**
-     * The action to preform when this component (and child components) are
+     * The action to perform when this component (and child components) are
      * clicked
      */
     @Getter
     private ClickEvent clickEvent;
     /**
-     * The action to preform when this component (and child components) are
+     * The action to perform when this component (and child components) are
      * hovered over
      */
     @Getter
@@ -76,21 +77,115 @@ public abstract class BaseComponent
 
     BaseComponent(BaseComponent old)
     {
-        setColor( old.getColorRaw() );
-        setBold( old.isBoldRaw() );
-        setItalic( old.isItalicRaw() );
-        setUnderlined( old.isUnderlinedRaw() );
-        setStrikethrough( old.isStrikethroughRaw() );
-        setObfuscated( old.isObfuscatedRaw() );
-        setInsertion( old.getInsertion() );
-        setClickEvent( old.getClickEvent() );
-        setHoverEvent( old.getHoverEvent() );
+        copyFormatting( old, FormatRetention.ALL, true );
+
         if ( old.getExtra() != null )
         {
-            for ( BaseComponent component : old.getExtra() )
+            for ( BaseComponent extra : old.getExtra() )
             {
-                addExtra( component.duplicate() );
+                addExtra( extra.duplicate() );
             }
+        }
+    }
+
+    /**
+     * Copies the events and formatting of a BaseComponent. Already set
+     * formatting will be replaced.
+     *
+     * @param component the component to copy from
+     */
+    public void copyFormatting(BaseComponent component)
+    {
+        copyFormatting( component, FormatRetention.ALL, true );
+    }
+
+    /**
+     * Copies the events and formatting of a BaseComponent.
+     *
+     * @param component the component to copy from
+     * @param replace if already set formatting should be replaced by the new
+     * component
+     */
+    public void copyFormatting(BaseComponent component, boolean replace)
+    {
+        copyFormatting( component, FormatRetention.ALL, replace );
+    }
+
+    /**
+     * Copies the specified formatting of a BaseComponent.
+     *
+     * @param component the component to copy from
+     * @param retention the formatting to copy
+     * @param replace if already set formatting should be replaced by the new
+     * component
+     */
+    public void copyFormatting(BaseComponent component, FormatRetention retention, boolean replace)
+    {
+        if ( retention == FormatRetention.EVENTS || retention == FormatRetention.ALL )
+        {
+            if ( replace || clickEvent == null )
+            {
+                setClickEvent( component.getClickEvent() );
+            }
+            if ( replace || hoverEvent == null )
+            {
+                setHoverEvent( component.getHoverEvent() );
+            }
+        }
+        if ( retention == FormatRetention.FORMATTING || retention == FormatRetention.ALL )
+        {
+            if ( replace || color == null )
+            {
+                setColor( component.getColorRaw() );
+            }
+            if ( replace || bold == null )
+            {
+                setBold( component.isBoldRaw() );
+            }
+            if ( replace || italic == null )
+            {
+                setItalic( component.isItalicRaw() );
+            }
+            if ( replace || underlined == null )
+            {
+                setUnderlined( component.isUnderlinedRaw() );
+            }
+            if ( replace || strikethrough == null )
+            {
+                setStrikethrough( component.isStrikethroughRaw() );
+            }
+            if ( replace || obfuscated == null )
+            {
+                setObfuscated( component.isObfuscatedRaw() );
+            }
+            if ( replace || insertion == null )
+            {
+                setInsertion( component.getInsertion() );
+            }
+        }
+    }
+
+    /**
+     * Retains only the specified formatting.
+     *
+     * @param retention the formatting to retain
+     */
+    public void retain(FormatRetention retention)
+    {
+        if ( retention == FormatRetention.FORMATTING || retention == FormatRetention.NONE )
+        {
+            setClickEvent( null );
+            setHoverEvent( null );
+        }
+        if ( retention == FormatRetention.EVENTS || retention == FormatRetention.NONE )
+        {
+            setColor( null );
+            setBold( null );
+            setItalic( null );
+            setUnderlined( null );
+            setStrikethrough( null );
+            setObfuscated( null );
+            setInsertion( null );
         }
     }
 
@@ -100,6 +195,20 @@ public abstract class BaseComponent
      * @return The duplicate of this BaseComponent
      */
     public abstract BaseComponent duplicate();
+
+    /**
+     * Clones the BaseComponent without formatting and returns the clone.
+     *
+     * @return The duplicate of this BaseComponent
+     * @deprecated API use discouraged, use traditional duplicate
+     */
+    @Deprecated
+    public BaseComponent duplicateWithoutFormatting()
+    {
+        BaseComponent component = duplicate();
+        component.retain( FormatRetention.NONE );
+        return component;
+    }
 
     /**
      * Converts the components to a string that uses the old formatting codes

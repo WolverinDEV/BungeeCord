@@ -55,6 +55,9 @@ import net.md_5.bungee.api.ReconnectHandler;
 import net.md_5.bungee.api.ServerPing;
 import net.md_5.bungee.api.Title;
 import net.md_5.bungee.api.chat.BaseComponent;
+import net.md_5.bungee.api.chat.KeybindComponent;
+import net.md_5.bungee.api.chat.ScoreComponent;
+import net.md_5.bungee.api.chat.SelectorComponent;
 import net.md_5.bungee.api.chat.TextComponent;
 import net.md_5.bungee.api.chat.TranslatableComponent;
 import net.md_5.bungee.api.config.ConfigurationAdapter;
@@ -64,6 +67,9 @@ import net.md_5.bungee.api.connection.ProxiedPlayer;
 import net.md_5.bungee.api.plugin.Plugin;
 import net.md_5.bungee.api.plugin.PluginManager;
 import net.md_5.bungee.chat.ComponentSerializer;
+import net.md_5.bungee.chat.KeybindComponentSerializer;
+import net.md_5.bungee.chat.ScoreComponentSerializer;
+import net.md_5.bungee.chat.SelectorComponentSerializer;
 import net.md_5.bungee.chat.TextComponentSerializer;
 import net.md_5.bungee.chat.TranslatableComponentSerializer;
 import net.md_5.bungee.command.CommandBungee;
@@ -71,6 +77,7 @@ import net.md_5.bungee.command.CommandEnd;
 import net.md_5.bungee.command.CommandIP;
 import net.md_5.bungee.command.CommandPerms;
 import net.md_5.bungee.command.CommandReload;
+import net.md_5.bungee.command.ConsoleCommandCompleter;
 import net.md_5.bungee.command.ConsoleCommandSender;
 import net.md_5.bungee.compress.CompressFactory;
 import net.md_5.bungee.conf.Configuration;
@@ -151,6 +158,9 @@ public class BungeeCord extends ProxyServer
             .registerTypeAdapter( BaseComponent.class, new ComponentSerializer() )
             .registerTypeAdapter( TextComponent.class, new TextComponentSerializer() )
             .registerTypeAdapter( TranslatableComponent.class, new TranslatableComponentSerializer() )
+            .registerTypeAdapter( KeybindComponent.class, new KeybindComponentSerializer() )
+            .registerTypeAdapter( ScoreComponent.class, new ScoreComponentSerializer() )
+            .registerTypeAdapter( SelectorComponent.class, new SelectorComponentSerializer() )
             .registerTypeAdapter( ServerPing.PlayerInfo.class, new PlayerInfoSerializer() )
             .registerTypeAdapter( Favicon.class, Favicon.getFaviconTypeAdapter() ).create();
     @Getter
@@ -189,14 +199,7 @@ public class BungeeCord extends ProxyServer
         {
             baseBundle = ResourceBundle.getBundle( "messages", Locale.ENGLISH );
         }
-        File file = new File( "messages.properties" );
-        if ( file.isFile() )
-        {
-            try ( FileReader rd = new FileReader( file ) )
-            {
-                customBundle = new PropertyResourceBundle( rd );
-            }
-        }
+        reloadMessages();
 
         // This is a workaround for quite possibly the weirdest bug I have ever encountered in my life!
         // When jansi attempts to extract its natives, by default it tries to extract a specific version,
@@ -211,6 +214,7 @@ public class BungeeCord extends ProxyServer
         AnsiConsole.systemInstall();
         consoleReader = new ConsoleReader();
         consoleReader.setExpandEvents( false );
+        consoleReader.addCompleter( new ConsoleCommandCompleter( this ) );
 
         logger = new BungeeLogger( "BungeeCord", "proxy.log", consoleReader );
         System.setErr( new PrintStream( new LoggingOutputStream( logger, Level.SEVERE ), true ) );
@@ -264,9 +268,14 @@ public class BungeeCord extends ProxyServer
         pluginManager.loadPlugins();
         config.load();
 
-        registerChannel( ForgeConstants.FML_TAG );
-        registerChannel( ForgeConstants.FML_HANDSHAKE_TAG );
-        registerChannel( ForgeConstants.FORGE_REGISTER );
+        if ( config.isForgeSupport() )
+        {
+            registerChannel( ForgeConstants.FML_TAG );
+            registerChannel( ForgeConstants.FML_HANDSHAKE_TAG );
+            registerChannel( ForgeConstants.FORGE_REGISTER );
+            
+            getLogger().warning( "MinecraftForge support is currently unmaintained and may have unresolved issues. Please use at your own risk." );
+        }
 
         isRunning = true;
 
@@ -404,15 +413,6 @@ public class BungeeCord extends ProxyServer
                 {
                 }
 
-                getLogger().info( "Closing IO threads" );
-                eventLoops.shutdownGracefully();
-                try
-                {
-                    eventLoops.awaitTermination( Long.MAX_VALUE, TimeUnit.NANOSECONDS );
-                } catch ( InterruptedException ex )
-                {
-                }
-
                 if ( reconnectHandler != null )
                 {
                     getLogger().info( "Saving reconnect locations" );
@@ -439,6 +439,15 @@ public class BungeeCord extends ProxyServer
                     }
                     getScheduler().cancel( plugin );
                     plugin.getExecutorService().shutdownNow();
+                }
+
+                getLogger().info( "Closing IO threads" );
+                eventLoops.shutdownGracefully();
+                try
+                {
+                    eventLoops.awaitTermination( Long.MAX_VALUE, TimeUnit.NANOSECONDS );
+                } catch ( InterruptedException ex )
+                {
                 }
 
                 getLogger().info( "Thank you and goodbye" );
@@ -482,6 +491,21 @@ public class BungeeCord extends ProxyServer
     public String getVersion()
     {
         return ( BungeeCord.class.getPackage().getImplementationVersion() == null ) ? "unknown" : BungeeCord.class.getPackage().getImplementationVersion();
+    }
+
+    public void reloadMessages()
+    {
+        File file = new File( "messages.properties" );
+        if ( file.isFile() )
+        {
+            try ( FileReader rd = new FileReader( file ) )
+            {
+                customBundle = new PropertyResourceBundle( rd );
+            } catch ( IOException ex )
+            {
+                getLogger().log( Level.SEVERE, "Could not load custom messages.properties", ex );
+            }
+        }
     }
 
     @Override
