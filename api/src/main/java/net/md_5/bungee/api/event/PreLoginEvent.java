@@ -29,6 +29,8 @@ public class PreLoginEvent extends AsyncEvent<PreLoginEvent> implements Cancella
      * Cancelled state.
      */
     private boolean cancelled;
+
+    private boolean onlineMode;
     /**
      * Message to use when kicking if this event is canceled.
      */
@@ -39,10 +41,11 @@ public class PreLoginEvent extends AsyncEvent<PreLoginEvent> implements Cancella
      */
     private final PendingConnection connection;
 
-    public PreLoginEvent(PendingConnection connection, Callback<PreLoginEvent> done)
+    public PreLoginEvent(PendingConnection connection, Callback<PreLoginEvent> done, boolean onlineMode)
     {
         super( done );
         this.connection = connection;
+        this.onlineMode = onlineMode;
     }
 
     /**

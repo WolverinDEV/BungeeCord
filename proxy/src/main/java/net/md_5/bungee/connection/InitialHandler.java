@@ -368,6 +368,8 @@ public class InitialHandler extends PacketHandler implements PendingConnection
                 {
                     return;
                 }
+                onlineMode = result.isOnlineMode();
+
                 if ( onlineMode )
                 {
                     unsafe().sendPacket( request = EncryptionUtil.encryptRequest() );
@@ -380,7 +382,7 @@ public class InitialHandler extends PacketHandler implements PendingConnection
         };
 
         // fire pre login event
-        bungee.getPluginManager().callEvent( new PreLoginEvent( InitialHandler.this, callback ) );
+        bungee.getPluginManager().callEvent( new PreLoginEvent( InitialHandler.this, callback , this.onlineMode) );
     }
 
     @Override
